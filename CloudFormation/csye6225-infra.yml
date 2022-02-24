@@ -1,0 +1,183 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Creates a VPC with 3 public subnet and route table"
+Parameters:
+    Region:
+      Description: "The region for this vpc create"
+      Type: String
+      Default: "us-east-1"
+    VPCName: 
+      Description: "The name of the VPC being created."
+      Type: String
+      Default: "MyVPC"
+    VpcCidrBlock:
+      Description: "CidrBlock for VPC."
+      Type: String
+      Default: "10.0.0.0/16"
+    SubnetCidrBlock0:
+      Description: "CidrBlock for Subnet0."
+      Type: String
+      Default: "10.0.0.0/24"
+    SubnetCidrBlock1:
+      Description: "CidrBlock for Subnet1."
+      Type: String
+      Default: "10.0.1.0/24"
+    SubnetCidrBlock2:
+      Description: "CidrBlock for Subnet2."
+      Type: String
+      Default: "10.0.2.0/24"
+
+Resources:
+
+  VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      EnableDnsSupport: "true"
+      EnableDnsHostnames: "true"
+      CidrBlock: !Ref VpcCidrBlock
+      Tags:
+        -
+          Key: "Network"
+          Value: "Public"
+        -
+          Key: "Application"
+          Value: !Ref AWS::StackName
+
+  PublicSubnet0:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone: !Join
+          - ''
+          - - !Ref Region
+            - 'a'
+      CidrBlock: !Ref SubnetCidrBlock0
+      MapPublicIpOnLaunch: "true"
+      Tags:
+        -
+          Key: "Application"
+          Value: !Ref AWS::StackName
+        -
+          Key: "Network"
+          Value: "Public"
+
+  PublicSubnet1:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone: !Join
+          - ''
+          - - !Ref Region
+            - 'b'
+      CidrBlock: !Ref SubnetCidrBlock1
+      MapPublicIpOnLaunch: "true"
+      Tags:
+        -
+          Key: "Application"
+          Value: !Ref AWS::StackName
+        -
+          Key: "Network"
+          Value: "Public"
+
+  PublicSubnet2:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone: !Join
+          - ''
+          - - !Ref Region
+            - 'c'
+      CidrBlock: !Ref SubnetCidrBlock2
+      MapPublicIpOnLaunch: "true"
+      Tags:
+        -
+          Key: "Application"
+          Value: !Ref AWS::StackName
+        -
+          Key: "Network"
+          Value: "Public"
+
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        -
+          Key: "Application"
+          Value:
+            Ref: AWS::StackName
+        -
+          Key: "Network"
+          Value: "Public"
+        -
+          Key: "Name"
+          Value: !Join
+            - ''
+            - - !Ref VPCName
+              - '-IGW'
+
+
+  GatewayToInternet:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId:
+        Ref: VPC
+      InternetGatewayId:
+        Ref: InternetGateway
+
+  PublicRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+        -
+          Key: "Application"
+          Value:
+            Ref: "AWS::StackName"
+        -
+          Key: "Network"
+          Value: "Public"
+        -
+          Key: "Name"
+          Value: !Join
+            - ''
+            - - !Ref VPCName
+              - '-public-route-table'
+
+
+  PublicRoute:
+    Type: "AWS::EC2::Route"
+    DependsOn: "GatewayToInternet"
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId:
+        Ref: InternetGateway
+
+  PublicSubnetRouteTableAssociation0:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet0
+      RouteTableId:
+        Ref: PublicRouteTable
+
+  PublicSubnetRouteTableAssociation1:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet1
+      RouteTableId:
+        Ref: PublicRouteTable
+
+  PublicSubnetRouteTableAssociation2:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet2
+      RouteTableId:
+        Ref: PublicRouteTable
