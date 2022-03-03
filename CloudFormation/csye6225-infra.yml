@@ -2,30 +2,37 @@ AWSTemplateFormatVersion: "2010-09-09"
 
 Description: "Creates a VPC with 3 public subnet and route table"
 Parameters:
-    Region:
-      Description: "The region for this vpc create"
-      Type: String
-      Default: "us-east-1"
-    VPCName: 
-      Description: "The name of the VPC being created."
-      Type: String
-      Default: "MyVPC"
-    VpcCidrBlock:
-      Description: "CidrBlock for VPC."
-      Type: String
-      Default: "10.0.0.0/16"
-    SubnetCidrBlock0:
-      Description: "CidrBlock for Subnet0."
-      Type: String
-      Default: "10.0.0.0/24"
-    SubnetCidrBlock1:
-      Description: "CidrBlock for Subnet1."
-      Type: String
-      Default: "10.0.1.0/24"
-    SubnetCidrBlock2:
-      Description: "CidrBlock for Subnet2."
-      Type: String
-      Default: "10.0.2.0/24"
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  ImageID:
+    Type: String
+    Default: "ami-0c293f3f676ec4f90"
+  InstanceType:
+    Type: String
+    Default: "t2.micro"
+  VPCName: 
+    Description: "The name of the VPC being created."
+    Type: String
+    Default: "MyVPC"
+  VpcCidrBlock:
+    Description: "CidrBlock for VPC."
+    Type: String
+    Default: "10.0.0.0/16"
+  SubnetCidrBlock0:
+    Description: "CidrBlock for Subnet0."
+    Type: String
+    Default: "10.0.0.0/24"
+  SubnetCidrBlock1:
+    Description: "CidrBlock for Subnet1."
+    Type: String
+    Default: "10.0.1.0/24"
+  SubnetCidrBlock2:
+    Description: "CidrBlock for Subnet2."
+    Type: String
+    Default: "10.0.2.0/24"
+
 
 Resources:
 
@@ -42,16 +49,18 @@ Resources:
         -
           Key: "Application"
           Value: !Ref AWS::StackName
+        -
+          Key: "Name"
+          Value: !Ref VPCName
 
   PublicSubnet0:
     Type: "AWS::EC2::Subnet"
     Properties:
       VpcId:
         Ref: VPC
-      AvailabilityZone: !Join
-          - ''
-          - - !Ref Region
-            - 'a'
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref AWS::Region
       CidrBlock: !Ref SubnetCidrBlock0
       MapPublicIpOnLaunch: "true"
       Tags:
@@ -61,16 +70,23 @@ Resources:
         -
           Key: "Network"
           Value: "Public"
+        -
+          Key: "Name"
+          Value: !Join
+            - ''
+            - - !Ref VPCName
+              - '-public'
+              - !Ref AWS::Region
+              - '0'
 
   PublicSubnet1:
     Type: "AWS::EC2::Subnet"
     Properties:
       VpcId:
         Ref: VPC
-      AvailabilityZone: !Join
-          - ''
-          - - !Ref Region
-            - 'b'
+      AvailabilityZone: !Select 
+        - 1
+        - Fn::GetAZs: !Ref AWS::Region
       CidrBlock: !Ref SubnetCidrBlock1
       MapPublicIpOnLaunch: "true"
       Tags:
@@ -80,16 +96,23 @@ Resources:
         -
           Key: "Network"
           Value: "Public"
+        -
+          Key: "Name"
+          Value: !Join
+            - ''
+            - - !Ref VPCName
+              - '-public'
+              - !Ref AWS::Region
+              - '1'         
 
   PublicSubnet2:
     Type: "AWS::EC2::Subnet"
     Properties:
       VpcId:
         Ref: VPC
-      AvailabilityZone: !Join
-          - ''
-          - - !Ref Region
-            - 'c'
+      AvailabilityZone: !Select 
+        - 2
+        - Fn::GetAZs: !Ref AWS::Region
       CidrBlock: !Ref SubnetCidrBlock2
       MapPublicIpOnLaunch: "true"
       Tags:
@@ -99,6 +122,14 @@ Resources:
         -
           Key: "Network"
           Value: "Public"
+        -
+          Key: "Name"
+          Value: !Join
+            - ''
+            - - !Ref VPCName
+              - '-public'
+              - !Ref AWS::Region
+              - '2'
 
   InternetGateway:
     Type: "AWS::EC2::InternetGateway"
@@ -181,3 +212,46 @@ Resources:
         Ref: PublicSubnet2
       RouteTableId:
         Ref: PublicRouteTable
+
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: "Application SecurityGroup"
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: tcp
+        FromPort: '8080'
+        ToPort: '8080'
+        CidrIp: "0.0.0.0/0"
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties: 
+      SecurityGroupIds: 
+      - !Ref ApplicationSecurityGroup
+      SubnetId: !Ref PublicSubnet0
+      ImageId: !Ref ImageID
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref 'KeyName'
+      BlockDeviceMappings: 
+      - DeviceName: "/dev/xvda"
+        Ebs: 
+          VolumeType: "gp2"
+          DeleteOnTermination: "true"
+          VolumeSize: "20"      
+      Tags:
+      - Key: Name
+        Value: myInstance
+    DependsOn: PublicSubnet0
