@@ -1,77 +1,180 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: '2010-09-09'
 
-Description: "Creates a VPC with 3 public subnet and route table"
+Description: 'Creates a VPC with 3 public subnet and route table'
 Parameters:
+  DomainName:
+    Description: use to generate the bucket name, stand for dev or dome
+    Type: String
+    Default: dev.zhenluo.me
   KeyName:
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
     Type: AWS::EC2::KeyPair::KeyName
     ConstraintDescription: must be the name of an existing EC2 KeyPair.
   ImageID:
     Type: String
-    Default: "ami-0c293f3f676ec4f90"
+    Default: 'ami-0c293f3f676ec4f90'
   InstanceType:
     Type: String
-    Default: "t2.micro"
+    Default: 't2.micro'
   VPCName: 
-    Description: "The name of the VPC being created."
+    Description: 'The name of the VPC being created.'
     Type: String
-    Default: "MyVPC"
+    Default: 'MyVPC'
   VpcCidrBlock:
-    Description: "CidrBlock for VPC."
+    Description: 'CidrBlock for VPC.'
     Type: String
-    Default: "10.0.0.0/16"
+    Default: '10.0.0.0/16'
   SubnetCidrBlock0:
-    Description: "CidrBlock for Subnet0."
+    Description: 'CidrBlock for Subnet0.'
     Type: String
-    Default: "10.0.0.0/24"
+    Default: '10.0.0.0/24'
   SubnetCidrBlock1:
-    Description: "CidrBlock for Subnet1."
+    Description: 'CidrBlock for Subnet1.'
     Type: String
-    Default: "10.0.1.0/24"
+    Default: '10.0.1.0/24'
   SubnetCidrBlock2:
-    Description: "CidrBlock for Subnet2."
+    Description: 'CidrBlock for Subnet2.'
     Type: String
-    Default: "10.0.2.0/24"
+    Default: '10.0.2.0/24'
+  # S3BucketName: 
+  #   Description: 'Name for S3Bucket, should be uniq'
+  #   Type: String
+  #   Default: !Join
+  #     - '-'
+  #     - - !Select
+  #         - 0
+  #         - !Split
+  #           - '-'
+  #           - !Select
+  #             - 2
+  #             - !Split
+  #               - '/'
+  #               - !Ref 'AWS::StackId'
+  #       - '.dev.zhenluo.me'
+
+
+  DBName:
+    Default: 'Django'
+    Description: The database name
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+  DBUser:
+    Default: 'csye6225'
+    NoEcho: 'true'
+    Description: The database admin account username
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+  DBPassword:
+    Default: 'RootPasslocalhost3306'
+    NoEcho: 'true'
+    Description: The database admin account password
+    Type: String
+    MinLength: '1'
+    MaxLength: '41'
+    AllowedPattern: '[a-zA-Z0-9]+'
+    ConstraintDescription: must contain only alphanumeric characters.
+  DBAllocatedStorage:
+    Default: '5'
+    Description: The size of the database (Gb)
+    Type: Number
+    MinValue: '5'
+    MaxValue: '1024'
+    ConstraintDescription: must be between 5 and 1024Gb.
+  DBInstanceClass:
+    Description: The database instance type
+    Type: String
+    Default: db.t2.micro
+    AllowedValues: [db.t1.micro, db.m1.small, db.m1.medium, db.m1.large, db.m1.xlarge,
+      db.m2.xlarge, db.m2.2xlarge, db.m2.4xlarge, db.m3.medium, db.m3.large, db.m3.xlarge,
+      db.m3.2xlarge, db.m4.large, db.m4.xlarge, db.m4.2xlarge, db.m4.4xlarge, db.m4.10xlarge,
+      db.r3.large, db.r3.xlarge, db.r3.2xlarge, db.r3.4xlarge, db.r3.8xlarge, db.m2.xlarge,
+      db.m2.2xlarge, db.m2.4xlarge, db.cr1.8xlarge, db.t2.micro, db.t2.small, db.t2.medium,
+      db.t2.large]
+    ConstraintDescription: must select a valid database instance type.
+  # EC2SecurityGroup:
+  #   Description: The EC2 security group that contains instances that need access to
+  #     the database
+  #   Default: default
+  #   Type: String
+  #   AllowedPattern: '[a-zA-Z0-9\-]+'
+  #   ConstraintDescription: must be a valid security group name.
+  MultiAZ:
+    Description: Multi-AZ master database
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    ConstraintDescription: must be true or false.
+
+
+
+Mappings:
+  CIDRConfig:
+    VPC:
+      CIDR: '10.0.0.0/16'
+    Public0:
+      CIDR: '10.0.0.0/24'
+    Public1:
+      CIDR: '10.0.1.0/24'
+    Public2:
+      CIDR: '10.0.2.0/24'
+    Private0:
+      CIDR: '10.0.3.0/24'
+    Private1:
+      CIDR: '10.0.4.0/24'
+    Private2:
+      CIDR: '10.0.5.0/24'
 
 
 Resources:
 
   VPC:
-    Type: "AWS::EC2::VPC"
+    Type: 'AWS::EC2::VPC'
     Properties:
-      EnableDnsSupport: "true"
-      EnableDnsHostnames: "true"
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
       CidrBlock: !Ref VpcCidrBlock
       Tags:
         -
-          Key: "Network"
-          Value: "Public"
+          Key: 'Network'
+          Value: 'Public'
         -
-          Key: "Application"
+          Key: 'Application'
           Value: !Ref AWS::StackName
         -
-          Key: "Name"
+          Key: 'Name'
           Value: !Ref VPCName
 
   PublicSubnet0:
-    Type: "AWS::EC2::Subnet"
+    Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId:
         Ref: VPC
       AvailabilityZone: !Select 
         - 0
         - Fn::GetAZs: !Ref AWS::Region
-      CidrBlock: !Ref SubnetCidrBlock0
-      MapPublicIpOnLaunch: "true"
+      CidrBlock: 
+        Fn::FindInMap:
+          - 'CIDRConfig'
+          - 'Public0'
+          - 'CIDR'
+      MapPublicIpOnLaunch: 'true'
       Tags:
         -
-          Key: "Application"
+          Key: 'Application'
           Value: !Ref AWS::StackName
         -
-          Key: "Network"
-          Value: "Public"
+          Key: 'Network'
+          Value: 'Public'
         -
-          Key: "Name"
+          Key: 'Name'
           Value: !Join
             - ''
             - - !Ref VPCName
@@ -80,24 +183,28 @@ Resources:
               - '0'
 
   PublicSubnet1:
-    Type: "AWS::EC2::Subnet"
+    Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId:
         Ref: VPC
       AvailabilityZone: !Select 
         - 1
         - Fn::GetAZs: !Ref AWS::Region
-      CidrBlock: !Ref SubnetCidrBlock1
-      MapPublicIpOnLaunch: "true"
+      CidrBlock:
+        Fn::FindInMap:
+          - 'CIDRConfig'
+          - 'Public1'
+          - 'CIDR'
+      MapPublicIpOnLaunch: 'true'
       Tags:
         -
-          Key: "Application"
+          Key: 'Application'
           Value: !Ref AWS::StackName
         -
-          Key: "Network"
-          Value: "Public"
+          Key: 'Network'
+          Value: 'Public'
         -
-          Key: "Name"
+          Key: 'Name'
           Value: !Join
             - ''
             - - !Ref VPCName
@@ -106,24 +213,28 @@ Resources:
               - '1'         
 
   PublicSubnet2:
-    Type: "AWS::EC2::Subnet"
+    Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId:
         Ref: VPC
       AvailabilityZone: !Select 
         - 2
         - Fn::GetAZs: !Ref AWS::Region
-      CidrBlock: !Ref SubnetCidrBlock2
-      MapPublicIpOnLaunch: "true"
+      CidrBlock:
+        Fn::FindInMap:
+          - 'CIDRConfig'
+          - 'Public2'
+          - 'CIDR'
+      MapPublicIpOnLaunch: 'true'
       Tags:
         -
-          Key: "Application"
+          Key: 'Application'
           Value: !Ref AWS::StackName
         -
-          Key: "Network"
-          Value: "Public"
+          Key: 'Network'
+          Value: 'Public'
         -
-          Key: "Name"
+          Key: 'Name'
           Value: !Join
             - ''
             - - !Ref VPCName
@@ -131,19 +242,146 @@ Resources:
               - !Ref AWS::Region
               - '2'
 
+  PrivateSubnet0:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId:
+        Ref: 'VPC'
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref AWS::Region
+      CidrBlock:
+        Fn::FindInMap:
+          - 'CIDRConfig'
+          - 'Private0'
+          - 'CIDR'
+      Tags:
+        -
+          Key: 'Application'
+          Value:
+            Ref: 'AWS::StackName'
+        -
+          Key: 'Network'
+          Value: 'Private'
+        -
+          Key: 'Name'
+          Value: !Join
+            - ''
+            - - !Ref VPCName
+              - '-private'
+              - !Ref AWS::Region
+              - '0'
+
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId:
+        Ref: 'VPC'
+      AvailabilityZone: !Select 
+        - 1
+        - Fn::GetAZs: !Ref AWS::Region
+      CidrBlock:
+        Fn::FindInMap:
+          - 'CIDRConfig'
+          - 'Private1'
+          - 'CIDR'
+      Tags:
+        -
+          Key: 'Application'
+          Value:
+            Ref: 'AWS::StackName'
+        -
+          Key: 'Network'
+          Value: 'Private'
+        -
+          Key: 'Name'
+          Value: !Join
+            - ''
+            - - !Ref VPCName
+              - '-private'
+              - !Ref AWS::Region
+              - '1'
+
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId:
+        Ref: 'VPC'
+      AvailabilityZone: !Select 
+        - 2
+        - Fn::GetAZs: !Ref AWS::Region
+      CidrBlock:
+        Fn::FindInMap:
+          - 'CIDRConfig'
+          - 'Private2'
+          - 'CIDR'
+      Tags:
+        -
+          Key: 'Application'
+          Value:
+            Ref: 'AWS::StackName'
+        -
+          Key: 'Network'
+          Value: 'Private'
+        -
+          Key: 'Name'
+          Value: !Join
+            - ''
+            - - !Ref VPCName
+              - '-private'
+              - !Ref AWS::Region
+              - '2'
+
+  PrivateRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId:
+        Ref: 'VPC'
+      Tags:
+        -
+          Key: 'Name'
+          Value: !Join
+            - ''
+            - - !Ref 'VPCName'
+              - '-private-route-table-0'
+
+  PrivateSubnetRouteTableAssociation0:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId:
+        Ref: 'PrivateSubnet0'
+      RouteTableId:
+        Ref: 'PrivateRouteTable'
+        
+  PrivateSubnetRouteTableAssociation1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId:
+        Ref: 'PrivateSubnet1'
+      RouteTableId:
+        Ref: 'PrivateRouteTable'
+
+  PrivateSubnetRouteTableAssociation2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId:
+        Ref: 'PrivateSubnet2'
+      RouteTableId:
+        Ref: 'PrivateRouteTable'
+
   InternetGateway:
-    Type: "AWS::EC2::InternetGateway"
+    Type: 'AWS::EC2::InternetGateway'
     Properties:
       Tags:
         -
-          Key: "Application"
+          Key: 'Application'
           Value:
             Ref: AWS::StackName
         -
-          Key: "Network"
-          Value: "Public"
+          Key: 'Network'
+          Value: 'Public'
         -
-          Key: "Name"
+          Key: 'Name'
           Value: !Join
             - ''
             - - !Ref VPCName
@@ -151,7 +389,7 @@ Resources:
 
 
   GatewayToInternet:
-    Type: "AWS::EC2::VPCGatewayAttachment"
+    Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:
       VpcId:
         Ref: VPC
@@ -159,20 +397,20 @@ Resources:
         Ref: InternetGateway
 
   PublicRouteTable:
-    Type: "AWS::EC2::RouteTable"
+    Type: 'AWS::EC2::RouteTable'
     Properties:
       VpcId:
         Ref: VPC
       Tags:
         -
-          Key: "Application"
+          Key: 'Application'
           Value:
-            Ref: "AWS::StackName"
+            Ref: 'AWS::StackName'
         -
-          Key: "Network"
-          Value: "Public"
+          Key: 'Network'
+          Value: 'Public'
         -
-          Key: "Name"
+          Key: 'Name'
           Value: !Join
             - ''
             - - !Ref VPCName
@@ -180,17 +418,17 @@ Resources:
 
 
   PublicRoute:
-    Type: "AWS::EC2::Route"
-    DependsOn: "GatewayToInternet"
+    Type: 'AWS::EC2::Route'
+    DependsOn: 'GatewayToInternet'
     Properties:
       RouteTableId:
         Ref: PublicRouteTable
-      DestinationCidrBlock: "0.0.0.0/0"
+      DestinationCidrBlock: '0.0.0.0/0'
       GatewayId:
         Ref: InternetGateway
 
   PublicSubnetRouteTableAssociation0:
-    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId:
         Ref: PublicSubnet0
@@ -198,7 +436,7 @@ Resources:
         Ref: PublicRouteTable
 
   PublicSubnetRouteTableAssociation1:
-    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId:
         Ref: PublicSubnet1
@@ -206,7 +444,7 @@ Resources:
         Ref: PublicRouteTable
 
   PublicSubnetRouteTableAssociation2:
-    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId:
         Ref: PublicSubnet2
@@ -217,24 +455,28 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !Ref VPC
-      GroupDescription: "Application SecurityGroup"
+      GroupDescription: 'Application SecurityGroup'
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: '22'
         ToPort: '22'
-        CidrIp: "0.0.0.0/0"
+        CidrIp: '0.0.0.0/0'
       - IpProtocol: tcp
         FromPort: '80'
         ToPort: '80'
-        CidrIp: "0.0.0.0/0"
+        CidrIp: '0.0.0.0/0'
       - IpProtocol: tcp
         FromPort: '443'
         ToPort: '443'
-        CidrIp: "0.0.0.0/0"
+        CidrIp: '0.0.0.0/0'
       - IpProtocol: tcp
         FromPort: '8080'
         ToPort: '8080'
-        CidrIp: "0.0.0.0/0"
+        CidrIp: '0.0.0.0/0'
+      - IpProtocol: tcp
+        FromPort: '3306'
+        ToPort: '3306'
+        CidrIp: '0.0.0.0/0'
 
   EC2Instance:
     Type: AWS::EC2::Instance
@@ -245,13 +487,203 @@ Resources:
       ImageId: !Ref ImageID
       InstanceType: !Ref InstanceType
       KeyName: !Ref 'KeyName'
+      IamInstanceProfile: !Ref iamInstanceProfile
       BlockDeviceMappings: 
-      - DeviceName: "/dev/xvda"
+      - DeviceName: '/dev/xvda'
         Ebs: 
-          VolumeType: "gp2"
-          DeleteOnTermination: "true"
-          VolumeSize: "20"      
+          VolumeType: 'gp2'
+          DeleteOnTermination: 'true'
+          VolumeSize: '20'      
       Tags:
       - Key: Name
         Value: myInstance
-    DependsOn: PublicSubnet0
+      UserData:
+        Fn::Base64: 
+            # echo "export RDS_HOSTNAME=${csye6225.Endpoint.Address}" >> /etc/profile
+            # echo "export RDS_DB_NAME=${DBName}" >> /etc/profile
+            # echo "export RDS_USERNAME=${DBUser}" >> /etc/profile
+            # echo "export RDS_PASSWORD=${DBPassword}" >> /etc/profile
+            # echo "export RDS_PORT=${csye6225.Endpoint.Port}" >> /etc/profile
+            # source /etc/profile
+          Fn::Sub: |
+            #!/bin/bash
+            source /home/ec2-user/venv/bin/activate
+            echo "export RDS_HOSTNAME=${csye6225.Endpoint.Address}" >> /etc/profile
+            echo "export RDS_DB_NAME=${DBName}" >> /etc/profile
+            echo "export RDS_USERNAME=${DBUser}" >> /etc/profile
+            echo "export RDS_PASSWORD=${DBPassword}" >> /etc/profile
+            echo "export RDS_PORT=${csye6225.Endpoint.Port}" >> /etc/profile
+            echo "export S3_Bucket_Name=${s3Bucket}" >> /etc/profile
+            source /etc/profile
+            cd /var/www/website/website
+            sed -i '$a os.environ['\''RDS_HOSTNAME'\''] = '\''${csye6225.Endpoint.Address}'\''' wsgi.py
+            sed -i '$a os.environ['\''RDS_DB_NAME'\''] = '\''${DBName}'\''' wsgi.py
+            sed -i '$a os.environ['\''RDS_USERNAME'\''] = '\''${DBUser}'\''' wsgi.py
+            sed -i '$a os.environ['\''RDS_PASSWORD'\''] = '\''${DBPassword}'\''' wsgi.py
+            sed -i '$a os.environ['\''RDS_PORT'\''] = '\''${csye6225.Endpoint.Port}'\''' wsgi.py
+            sed -i '$a os.environ['\''S3_Bucket_Name'\''] = '\''${s3Bucket}'\''' wsgi.py
+            sed -i '$a os.environ.setdefault('\''DJANGO_SETTINGS_MODULE'\'', '\''website.settings'\'')' wsgi.py
+            sed -i '$a application = get_wsgi_application()' wsgi.py
+            cd /var/www/website
+            python manage.py makemigrations
+            python manage.py migrate
+            systemctl enable --now httpd
+
+    DependsOn: 
+      - PublicSubnet0
+      - csye6225
+
+  rdsDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: 'The subnet group for RDS instance'
+      SubnetIds:
+        - !Ref PrivateSubnet0
+        - !Ref PrivateSubnet1
+      Tags:
+        -
+          Key: 'Application'
+          Value:
+            Ref: 'AWS::StackName'
+
+  DBEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Open database for access
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '3306'
+        ToPort: '3306'
+        SourceSecurityGroupId: !Ref 'ApplicationSecurityGroup'
+
+
+
+  iamPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: 'S3buckPolicy'
+      Roles:
+       - !Ref  iamRole
+      PolicyDocument:  # policy document - can be JSON or YAML
+        Version: '2012-10-17'
+        Statement:
+          - 
+            Effect: 'Allow'
+            Action: 
+              - 's3:DeleteObjectTagging'
+              - 's3:PutObject'
+              - 's3:GetObject'
+              - 's3:ListBucketMultipartUploads'
+              - 's3:DeleteObjectVersion'
+              - 's3:ListBucketVersions'
+              - 's3:PutObjectVersionTagging'
+              - 's3:ListBucket'
+              - 's3:PutObjectTagging'
+              - 's3:DeleteObject'
+              - 's3:GetObjectVersion'
+              - 's3:ListMultipartUploadParts'
+            Resource: 
+              - !GetAtt s3Bucket.Arn
+              - !Join
+                - ''
+                - - !GetAtt s3Bucket.Arn
+                  - /*
+
+  iamInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref iamRole
+  iamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: 
+        Version: '2012-10-17'
+        Statement: 
+          - 
+            Effect: 'Allow'
+            Principal: 
+              Service: 
+                - 'ec2.amazonaws.com'
+            Action: 
+              - 'sts:AssumeRole'
+
+  rdsDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: 'DBParameter Group for RDS'
+      Family: mysql8.0
+      Parameters:
+        validate-password: 'OFF'
+        password_reuse_interval: 0
+      Tags:
+      - Key: Name
+        Value: DB ParameterGroup
+
+  csye6225:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: !Ref 'DBName'
+      AllocatedStorage: !Ref 'DBAllocatedStorage'
+      DBInstanceClass: !Ref 'DBInstanceClass'
+      Engine: MySQL
+      DBSubnetGroupName: !Ref rdsDBSubnetGroup
+      MasterUsername: !Ref 'DBUser'
+      MasterUserPassword: !Ref 'DBPassword'
+      DBParameterGroupName: !Ref rdsDBParameterGroup
+      MultiAZ: !Ref 'MultiAZ'
+      Tags:
+      - Key: Name
+        Value: Master Database
+      VPCSecurityGroups: 
+      - !Ref DBEC2SecurityGroup
+
+    DeletionPolicy: Snapshot
+  # ReplicaDB:
+  #   Type: AWS::RDS::DBInstance
+  #   Properties:
+  #     SourceDBInstanceIdentifier: !Ref 'MasterDB'
+  #     DBInstanceClass: !Ref 'DBInstanceClass'
+  #     Tags:
+  #     - Key: Name
+  #       Value: Read Replica Database
+
+
+
+  s3Bucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      BucketName: !Join
+        - "-"
+        - - !Select
+            - 0
+            - !Split
+              - "-"
+              - !Select
+                - 2
+                - !Split
+                  - "/"
+                  - !Ref "AWS::StackId"
+          - !Ref DomainName
+      LifecycleConfiguration: 
+        Rules:
+          - Id: ImageRule
+            Status: Enabled
+            # ExpirationInDays: 365
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: STANDARD_IA
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+      VersioningConfiguration: 
+        Status: Suspended
+      Tags:
+        - Key: key
+          Value: value
