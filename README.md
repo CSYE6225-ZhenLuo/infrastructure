@@ -10,5 +10,11 @@ aws config --profile=demo
 aws --profile=dev cloudformation create-stack --stack-name STACK --template-body file://csye6225-infra.yml
 
 aws --profile=dev cloudformation delete-stack --stack-name STACK
-### Change region to others
-aws --profile=dev cloudformation create-stack --stack-name STACK --template-body file://csye6225-infra.yml --parameters ParameterKey=Region,ParameterValue="us-east-2"
+### Use parameters
+aws --profile=dev cloudformation create-stack --stack-name STACK --template-body file://csye6225-infra.yml --parameters ParameterKey=KeyName,ParameterValue="AmazonEC2-ED" ParameterKey=ImageID,ParameterValue= --capabilities CAPABILITY_IAM
+ami-06bd596719bfe1a92
+
+## Delete bucket object
+
+aws --profile=dev s3 rm s3://bucket-name --recursive
+*-dev.zhenluo.me
