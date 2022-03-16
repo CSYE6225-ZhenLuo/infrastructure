@@ -658,6 +658,11 @@ Resources:
     Type: AWS::S3::Bucket
     Properties: 
       AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
       BucketName: !Join
         - "-"
         - - !Select
@@ -683,8 +688,6 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
 
-      VersioningConfiguration: 
-        Status: Suspended
       Tags:
         - Key: key
           Value: value
