@@ -525,7 +525,7 @@ Resources:
             sed -i '$a os.environ.setdefault('\''DJANGO_SETTINGS_MODULE'\'', '\''website.settings'\'')' wsgi.py
             sed -i '$a application = get_wsgi_application()' wsgi.py
             cd /var/www/website
-            python manage.py makemigrations
+            python manage.py makemigrations API
             python manage.py migrate
             systemctl enable --now httpd
 
@@ -617,6 +617,7 @@ Resources:
       Description: 'DBParameter Group for RDS'
       Family: mysql8.0
       Parameters:
+        sql_mode: 'STRICT_TRANS_TABLES'
         validate-password: 'OFF'
         password_reuse_interval: 0
       Tags:
