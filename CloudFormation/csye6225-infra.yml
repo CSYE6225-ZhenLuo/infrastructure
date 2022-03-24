@@ -36,23 +36,6 @@ Parameters:
     Description: 'CidrBlock for Subnet2.'
     Type: String
     Default: '10.0.2.0/24'
-  # S3BucketName: 
-  #   Description: 'Name for S3Bucket, should be uniq'
-  #   Type: String
-  #   Default: !Join
-  #     - '-'
-  #     - - !Select
-  #         - 0
-  #         - !Split
-  #           - '-'
-  #           - !Select
-  #             - 2
-  #             - !Split
-  #               - '/'
-  #               - !Ref 'AWS::StackId'
-  #       - '.dev.zhenluo.me'
-
-
   DBName:
     Default: 'Django'
     Description: The database name
@@ -99,13 +82,6 @@ Parameters:
       db.m2.2xlarge, db.m2.4xlarge, db.cr1.8xlarge, db.t2.micro, db.t2.small, db.t2.medium,
       db.t2.large]
     ConstraintDescription: must select a valid database instance type.
-  # EC2SecurityGroup:
-  #   Description: The EC2 security group that contains instances that need access to
-  #     the database
-  #   Default: default
-  #   Type: String
-  #   AllowedPattern: '[a-zA-Z0-9\-]+'
-  #   ConstraintDescription: must be a valid security group name.
   MultiAZ:
     Description: Multi-AZ master database
     Type: String
@@ -134,7 +110,6 @@ Mappings:
 
 
 Resources:
-
   VPC:
     Type: 'AWS::EC2::VPC'
     Properties:
@@ -451,87 +426,97 @@ Resources:
       RouteTableId:
         Ref: PublicRouteTable
 
+  # ApplicationSecurityGroup:
+  #   Type: AWS::EC2::SecurityGroup
+  #   Properties:
+  #     VpcId: !Ref VPC
+  #     GroupDescription: 'Application SecurityGroup'
+  #     SecurityGroupIngress:
+  #       - IpProtocol: tcp
+  #         FromPort: '22'
+  #         ToPort: '22'
+  #         CidrIp: '0.0.0.0/0'
+  #       - IpProtocol: tcp
+  #         FromPort: '80'
+  #         ToPort: '80'
+  #         CidrIp: '0.0.0.0/0'
+  #       - IpProtocol: tcp
+  #         FromPort: '443'
+  #         ToPort: '443'
+  #         CidrIp: '0.0.0.0/0'
+  #       - IpProtocol: tcp
+  #         FromPort: '8080'
+  #         ToPort: '8080'
+  #         CidrIp: '0.0.0.0/0'
+  #       - IpProtocol: tcp
+  #         FromPort: '3306'
+  #         ToPort: '3306'
+  #         CidrIp: '0.0.0.0/0'
+
   ApplicationSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !Ref VPC
       GroupDescription: 'Application SecurityGroup'
       SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: '22'
-        ToPort: '22'
-        CidrIp: '0.0.0.0/0'
-      - IpProtocol: tcp
-        FromPort: '80'
-        ToPort: '80'
-        CidrIp: '0.0.0.0/0'
-      - IpProtocol: tcp
-        FromPort: '443'
-        ToPort: '443'
-        CidrIp: '0.0.0.0/0'
-      - IpProtocol: tcp
-        FromPort: '8080'
-        ToPort: '8080'
-        CidrIp: '0.0.0.0/0'
-      - IpProtocol: tcp
-        FromPort: '3306'
-        ToPort: '3306'
-        CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          SourceSecurityGroupId: !Ref 'loadBalancerSecurityGroup'
+        - IpProtocol: tcp
+          FromPort: '3306'
+          ToPort: '3306'
+          CidrIp: '0.0.0.0/0'
 
-  EC2Instance:
-    Type: AWS::EC2::Instance
-    Properties: 
-      SecurityGroupIds: 
-      - !Ref ApplicationSecurityGroup
-      SubnetId: !Ref PublicSubnet0
-      ImageId: !Ref ImageID
-      InstanceType: !Ref InstanceType
-      KeyName: !Ref 'KeyName'
-      IamInstanceProfile: !Ref iamInstanceProfile
-      BlockDeviceMappings: 
-      - DeviceName: '/dev/xvda'
-        Ebs: 
-          VolumeType: 'gp2'
-          DeleteOnTermination: 'true'
-          VolumeSize: '20'      
-      Tags:
-      - Key: Name
-        Value: myInstance
-      UserData:
-        Fn::Base64: 
-            # echo "export RDS_HOSTNAME=${csye6225.Endpoint.Address}" >> /etc/profile
-            # echo "export RDS_DB_NAME=${DBName}" >> /etc/profile
-            # echo "export RDS_USERNAME=${DBUser}" >> /etc/profile
-            # echo "export RDS_PASSWORD=${DBPassword}" >> /etc/profile
-            # echo "export RDS_PORT=${csye6225.Endpoint.Port}" >> /etc/profile
-            # source /etc/profile
-          Fn::Sub: |
-            #!/bin/bash
-            source /home/ec2-user/venv/bin/activate
-            echo "export RDS_HOSTNAME=${csye6225.Endpoint.Address}" >> /etc/profile
-            echo "export RDS_DB_NAME=${DBName}" >> /etc/profile
-            echo "export RDS_USERNAME=${DBUser}" >> /etc/profile
-            echo "export RDS_PASSWORD=${DBPassword}" >> /etc/profile
-            echo "export RDS_PORT=${csye6225.Endpoint.Port}" >> /etc/profile
-            echo "export S3_Bucket_Name=${s3Bucket}" >> /etc/profile
-            source /etc/profile
-            cd /var/www/website/website
-            sed -i '$a os.environ['\''RDS_HOSTNAME'\''] = '\''${csye6225.Endpoint.Address}'\''' wsgi.py
-            sed -i '$a os.environ['\''RDS_DB_NAME'\''] = '\''${DBName}'\''' wsgi.py
-            sed -i '$a os.environ['\''RDS_USERNAME'\''] = '\''${DBUser}'\''' wsgi.py
-            sed -i '$a os.environ['\''RDS_PASSWORD'\''] = '\''${DBPassword}'\''' wsgi.py
-            sed -i '$a os.environ['\''RDS_PORT'\''] = '\''${csye6225.Endpoint.Port}'\''' wsgi.py
-            sed -i '$a os.environ['\''S3_Bucket_Name'\''] = '\''${s3Bucket}'\''' wsgi.py
-            sed -i '$a os.environ.setdefault('\''DJANGO_SETTINGS_MODULE'\'', '\''website.settings'\'')' wsgi.py
-            sed -i '$a application = get_wsgi_application()' wsgi.py
-            cd /var/www/website
-            python manage.py makemigrations API
-            python manage.py migrate
-            systemctl enable --now httpd
+  # EC2Instance:
+  #   Type: AWS::EC2::Instance
+  #   Properties: 
+  #     SecurityGroupIds: 
+  #     - !Ref ApplicationSecurityGroup
+  #     SubnetId: !Ref PublicSubnet0
+  #     ImageId: !Ref ImageID
+  #     InstanceType: !Ref InstanceType
+  #     KeyName: !Ref 'KeyName'
+  #     IamInstanceProfile: !Ref iamInstanceProfile
+  #     BlockDeviceMappings: 
+  #     - DeviceName: '/dev/xvda'
+  #       Ebs: 
+  #         VolumeType: 'gp2'
+  #         DeleteOnTermination: 'true'
+  #         VolumeSize: '20'      
+  #     Tags:
+  #     - Key: Name
+  #       Value: myInstance
+  #     UserData:
+  #       Fn::Base64: 
+  #         Fn::Sub: |
+  #           #!/bin/bash
+  #           source /home/ec2-user/venv/bin/activate
+  #           echo "export RDS_HOSTNAME=${csye6225.Endpoint.Address}" >> /etc/profile
+  #           echo "export RDS_DB_NAME=${DBName}" >> /etc/profile
+  #           echo "export RDS_USERNAME=${DBUser}" >> /etc/profile
+  #           echo "export RDS_PASSWORD=${DBPassword}" >> /etc/profile
+  #           echo "export RDS_PORT=${csye6225.Endpoint.Port}" >> /etc/profile
+  #           echo "export S3_Bucket_Name=${s3Bucket}" >> /etc/profile
+  #           source /etc/profile
+  #           cd /var/www/website/website
+  #           sed -i '$a os.environ['\''RDS_HOSTNAME'\''] = '\''${csye6225.Endpoint.Address}'\''' wsgi.py
+  #           sed -i '$a os.environ['\''RDS_DB_NAME'\''] = '\''${DBName}'\''' wsgi.py
+  #           sed -i '$a os.environ['\''RDS_USERNAME'\''] = '\''${DBUser}'\''' wsgi.py
+  #           sed -i '$a os.environ['\''RDS_PASSWORD'\''] = '\''${DBPassword}'\''' wsgi.py
+  #           sed -i '$a os.environ['\''RDS_PORT'\''] = '\''${csye6225.Endpoint.Port}'\''' wsgi.py
+  #           sed -i '$a os.environ['\''S3_Bucket_Name'\''] = '\''${s3Bucket}'\''' wsgi.py
+  #           sed -i '$a os.environ.setdefault('\''DJANGO_SETTINGS_MODULE'\'', '\''website.settings'\'')' wsgi.py
+  #           sed -i '$a application = get_wsgi_application()' wsgi.py
+  #           cd /var/www/website
+  #           python manage.py makemigrations API
+  #           python manage.py migrate
+  #           systemctl enable --now httpd
 
-    DependsOn: 
-      - PublicSubnet0
-      - csye6225
 
   rdsDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -552,10 +537,10 @@ Resources:
       VpcId: !Ref VPC
       GroupDescription: Open database for access
       SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: '3306'
-        ToPort: '3306'
-        SourceSecurityGroupId: !Ref 'ApplicationSecurityGroup'
+        - IpProtocol: tcp
+          FromPort: '3306'
+          ToPort: '3306'
+          SourceSecurityGroupId: !Ref 'ApplicationSecurityGroup'
 
 
 
@@ -610,6 +595,8 @@ Resources:
                 - 'ec2.amazonaws.com'
             Action: 
               - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
 
   rdsDBParameterGroup:
     Type: AWS::RDS::DBParameterGroup
@@ -643,14 +630,6 @@ Resources:
       - !Ref DBEC2SecurityGroup
 
     DeletionPolicy: Snapshot
-  # ReplicaDB:
-  #   Type: AWS::RDS::DBInstance
-  #   Properties:
-  #     SourceDBInstanceIdentifier: !Ref 'MasterDB'
-  #     DBInstanceClass: !Ref 'DBInstanceClass'
-  #     Tags:
-  #     - Key: Name
-  #       Value: Read Replica Database
 
 
 
@@ -691,3 +670,261 @@ Resources:
       Tags:
         - Key: key
           Value: value
+
+  loadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for load balancer
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: '0.0.0.0/0'
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          # SourceSecurityGroupId: !Ref 'ApplicationSecurityGroup'
+          CidrIp: '0.0.0.0/0'
+      Tags:
+        - Key: name
+          Value: WebApplication
+
+  asgEC2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${AWS::StackName}-launch-template'
+      LaunchTemplateData:
+        IamInstanceProfile: 
+          Name: !Ref iamInstanceProfile
+        BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: "gp2"
+            DeleteOnTermination: true
+        ImageId: !Ref ImageID
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref 'KeyName'
+        SecurityGroupIds:
+          - !Ref ApplicationSecurityGroup
+        UserData:
+          Fn::Base64: 
+            Fn::Sub: |
+              #!/bin/bash
+              source /home/ec2-user/venv/bin/activate
+              echo "export RDS_HOSTNAME=${csye6225.Endpoint.Address}" >> /etc/profile
+              echo "export RDS_DB_NAME=${DBName}" >> /etc/profile
+              echo "export RDS_USERNAME=${DBUser}" >> /etc/profile
+              echo "export RDS_PASSWORD=${DBPassword}" >> /etc/profile
+              echo "export RDS_PORT=${csye6225.Endpoint.Port}" >> /etc/profile
+              echo "export S3_Bucket_Name=${s3Bucket}" >> /etc/profile
+              source /etc/profile
+              cd /var/www/website/website
+              sed -i '$a os.environ['\''RDS_HOSTNAME'\''] = '\''${csye6225.Endpoint.Address}'\''' wsgi.py
+              sed -i '$a os.environ['\''RDS_DB_NAME'\''] = '\''${DBName}'\''' wsgi.py
+              sed -i '$a os.environ['\''RDS_USERNAME'\''] = '\''${DBUser}'\''' wsgi.py
+              sed -i '$a os.environ['\''RDS_PASSWORD'\''] = '\''${DBPassword}'\''' wsgi.py
+              sed -i '$a os.environ['\''RDS_PORT'\''] = '\''${csye6225.Endpoint.Port}'\''' wsgi.py
+              sed -i '$a os.environ['\''S3_Bucket_Name'\''] = '\''${s3Bucket}'\''' wsgi.py
+              sed -i '$a os.environ.setdefault('\''DJANGO_SETTINGS_MODULE'\'', '\''website.settings'\'')' wsgi.py
+              sed -i '$a application = get_wsgi_application()' wsgi.py
+              cd /var/www/website
+              python manage.py makemigrations API
+              python manage.py migrate
+              systemctl enable --now httpd
+
+  asgWebApp:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub ${AWS::StackName}-asg
+      AvailabilityZones:
+        - !Select 
+          - 0
+          - Fn::GetAZs: !Ref AWS::Region
+        - !Select 
+          - 1
+          - Fn::GetAZs: !Ref AWS::Region
+        - !Select 
+          - 2
+          - Fn::GetAZs: !Ref AWS::Region
+      Cooldown: '60'
+      DesiredCapacity: '1'
+      HealthCheckGracePeriod: 90
+      HealthCheckType: EC2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref asgEC2LaunchTemplate
+        Version: !GetAtt asgEC2LaunchTemplate.LatestVersionNumber
+      # LoadBalancerNames:
+      #   - String
+      MaxSize: '3'
+      MinSize: '1'
+      NewInstancesProtectedFromScaleIn: true
+      Tags:
+        - Key: Application
+          Value: WebApp
+          PropagateAtLaunch: "true"
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-asg
+          PropagateAtLaunch: "true"
+      TargetGroupARNs:
+        - !Ref loadBalancerTargetGroup
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet0
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+
+  # asgUPPolicy:
+  #   Type: AWS::AutoScaling::ScalingPolicy
+  #   Properties:
+  #     AutoScalingGroupName: !Ref asgWebApp
+  #     AdjustmentType: ChangeInCapacity
+  #     ScalingAdjustment: 1
+  #     Cooldown: 60
+      
+  # asgDownPolicy:
+  #   Type: AWS::AutoScaling::ScalingPolicy
+  #   Properties:
+  #     AutoScalingGroupName: !Ref asgWebApp
+  #     AdjustmentType: ChangeInCapacity
+  #     ScalingAdjustment: -1
+  #     Cooldown: 60
+
+  # CPUAlarmHigh:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Properties:
+  #     MetricName: CPUUtilization
+  #     Namespace: AWS/EC2
+  #     ComparisonOperator: GreaterThanThreshold
+  #     EvaluationPeriods: 2
+  #     Period: 30
+  #     Statistic: Average
+  #     Threshold: 5
+  #     AlarmActions: 
+  #       - !Ref asgUPPolicy
+  #     AlarmDescription: Scale-up if CPU is greater than 5% for 10 seconds
+  #     Dimensions:
+  #     - Name: AutoScalingGroupName
+  #       Value: !Ref asgWebApp
+
+  # CPUAlarmLow:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Properties:
+  #     MetricName: CPUUtilization
+  #     Namespace: AWS/EC2
+  #     ComparisonOperator: LessThanThreshold
+  #     EvaluationPeriods: 2
+  #     Period: 30
+  #     Statistic: Average
+  #     Threshold: 3
+  #     AlarmActions: 
+  #       - !Ref asgDownPolicy
+  #     AlarmDescription: Scale-down if CPU is less than 3% for 10 seconds
+  #     Dimensions:
+  #     - Name: asg
+  #       Value: !Ref asgWebApp
+  asgCPUPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref asgWebApp
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 50.0
+  loadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DependsOn: 'GatewayToInternet'
+    Properties:
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+      Name: !Sub ${AWS::StackName}-load-balancer
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref loadBalancerSecurityGroup
+      Subnets:
+        - !Ref PublicSubnet0
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      Tags:
+        - Key: Application
+          Value: WebApp
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-load-balancer
+      Type: application
+
+  loadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 90
+      HealthCheckPath: '/'
+      HealthCheckPort: '80'
+      HealthCheckProtocol: 'HTTP'
+      HealthCheckTimeoutSeconds: 60
+      HealthyThresholdCount: 2
+      IpAddressType: ipv4
+      Name: !Sub ${AWS::StackName}-lb-tgb
+      Port: 80
+      Protocol: 'HTTP'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lb-tg
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '20'
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref VPC
+
+  loadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref loadBalancerTargetGroup
+      LoadBalancerArn: !Ref loadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # route53RS:
+  #   Type: AWS::Route53::RecordSet
+  #   Properties:
+  #     Name: !Ref DomainName
+  #     Comment: "Record for load balancer"
+  #     Type: A
+  #     TTL: 900
+  #     AliasTarget: 
+  #       DNSName: !GetAtt loadBalancer.DNSName
+  #       EvaluateTargetHealth: true
+  #       HostedZoneId: !GetAtt loadBalancer.CanonicalHostedZoneID
+
+  #     HostedZoneId: "Z050530319DQ7V8C4I4AJ"
+  myDNS:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: Z0646941ZLV9R20GRCCB
+      Comment: Zone apex alias targeted to loadBalancer.
+      RecordSets:
+      - Name: demo.zhenluo.me
+        Type: A
+        AliasTarget:
+          HostedZoneId: !GetAtt 'loadBalancer.CanonicalHostedZoneID'
+          DNSName: !GetAtt 'loadBalancer.DNSName'
+
+  # MyDomain: 
+  #    Type: "AWS::Route53::RecordSet"
+  #    Properties: 
+  #     AliasTarget: 
+  #       DNSName: !GetAtt loadBalancer.DNSName
+  #       EvaluateTargetHealth: true
+  #       HostedZoneId: !GetAtt loadBalancer.CanonicalHostedZoneID
+  #     HostedZoneName: !Ref DomainName
+  #     Name: !Ref DomainName
+  #     Type: A
