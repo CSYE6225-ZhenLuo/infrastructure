@@ -1,7 +1,5 @@
-aws AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: '2010-09-09'
 Description: 'CICD cloud formation'
-
-Parameters: 
 
 
 
@@ -105,4 +103,3 @@ Resources:
             Resource: 
               - '*'
               
-Outputs:
