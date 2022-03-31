@@ -426,33 +426,6 @@ Resources:
       RouteTableId:
         Ref: PublicRouteTable
 
-  # ApplicationSecurityGroup:
-  #   Type: AWS::EC2::SecurityGroup
-  #   Properties:
-  #     VpcId: !Ref VPC
-  #     GroupDescription: 'Application SecurityGroup'
-  #     SecurityGroupIngress:
-  #       - IpProtocol: tcp
-  #         FromPort: '22'
-  #         ToPort: '22'
-  #         CidrIp: '0.0.0.0/0'
-  #       - IpProtocol: tcp
-  #         FromPort: '80'
-  #         ToPort: '80'
-  #         CidrIp: '0.0.0.0/0'
-  #       - IpProtocol: tcp
-  #         FromPort: '443'
-  #         ToPort: '443'
-  #         CidrIp: '0.0.0.0/0'
-  #       - IpProtocol: tcp
-  #         FromPort: '8080'
-  #         ToPort: '8080'
-  #         CidrIp: '0.0.0.0/0'
-  #       - IpProtocol: tcp
-  #         FromPort: '3306'
-  #         ToPort: '3306'
-  #         CidrIp: '0.0.0.0/0'
-
   ApplicationSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -471,52 +444,6 @@ Resources:
           FromPort: '3306'
           ToPort: '3306'
           CidrIp: '0.0.0.0/0'
-
-  # EC2Instance:
-  #   Type: AWS::EC2::Instance
-  #   Properties: 
-  #     SecurityGroupIds: 
-  #     - !Ref ApplicationSecurityGroup
-  #     SubnetId: !Ref PublicSubnet0
-  #     ImageId: !Ref ImageID
-  #     InstanceType: !Ref InstanceType
-  #     KeyName: !Ref 'KeyName'
-  #     IamInstanceProfile: !Ref iamInstanceProfile
-  #     BlockDeviceMappings: 
-  #     - DeviceName: '/dev/xvda'
-  #       Ebs: 
-  #         VolumeType: 'gp2'
-  #         DeleteOnTermination: 'true'
-  #         VolumeSize: '20'      
-  #     Tags:
-  #     - Key: Name
-  #       Value: myInstance
-  #     UserData:
-  #       Fn::Base64: 
-  #         Fn::Sub: |
-  #           #!/bin/bash
-  #           source /home/ec2-user/venv/bin/activate
-  #           echo "export RDS_HOSTNAME=${csye6225.Endpoint.Address}" >> /etc/profile
-  #           echo "export RDS_DB_NAME=${DBName}" >> /etc/profile
-  #           echo "export RDS_USERNAME=${DBUser}" >> /etc/profile
-  #           echo "export RDS_PASSWORD=${DBPassword}" >> /etc/profile
-  #           echo "export RDS_PORT=${csye6225.Endpoint.Port}" >> /etc/profile
-  #           echo "export S3_Bucket_Name=${s3Bucket}" >> /etc/profile
-  #           source /etc/profile
-  #           cd /var/www/website/website
-  #           sed -i '$a os.environ['\''RDS_HOSTNAME'\''] = '\''${csye6225.Endpoint.Address}'\''' wsgi.py
-  #           sed -i '$a os.environ['\''RDS_DB_NAME'\''] = '\''${DBName}'\''' wsgi.py
-  #           sed -i '$a os.environ['\''RDS_USERNAME'\''] = '\''${DBUser}'\''' wsgi.py
-  #           sed -i '$a os.environ['\''RDS_PASSWORD'\''] = '\''${DBPassword}'\''' wsgi.py
-  #           sed -i '$a os.environ['\''RDS_PORT'\''] = '\''${csye6225.Endpoint.Port}'\''' wsgi.py
-  #           sed -i '$a os.environ['\''S3_Bucket_Name'\''] = '\''${s3Bucket}'\''' wsgi.py
-  #           sed -i '$a os.environ.setdefault('\''DJANGO_SETTINGS_MODULE'\'', '\''website.settings'\'')' wsgi.py
-  #           sed -i '$a application = get_wsgi_application()' wsgi.py
-  #           cd /var/www/website
-  #           python manage.py makemigrations API
-  #           python manage.py migrate
-  #           systemctl enable --now httpd
-
 
   rdsDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -541,8 +468,6 @@ Resources:
           FromPort: '3306'
           ToPort: '3306'
           SourceSecurityGroupId: !Ref 'ApplicationSecurityGroup'
-
-
 
   iamPolicy:
     Type: AWS::IAM::Policy
@@ -581,6 +506,8 @@ Resources:
       Path: /
       Roles:
         - !Ref iamRole
+        - !Ref CodeDeployRole
+  
   iamRole:
     Type: AWS::IAM::Role
     Properties:
@@ -630,8 +557,6 @@ Resources:
       - !Ref DBEC2SecurityGroup
 
     DeletionPolicy: Snapshot
-
-
 
   s3Bucket:
     Type: AWS::S3::Bucket
@@ -837,6 +762,7 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ASGAverageCPUUtilization
         TargetValue: 50.0
+  
   loadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     DependsOn: 'GatewayToInternet'
@@ -893,19 +819,6 @@ Resources:
       Port: 80
       Protocol: HTTP
 
-  # route53RS:
-  #   Type: AWS::Route53::RecordSet
-  #   Properties:
-  #     Name: !Ref DomainName
-  #     Comment: "Record for load balancer"
-  #     Type: A
-  #     TTL: 900
-  #     AliasTarget: 
-  #       DNSName: !GetAtt loadBalancer.DNSName
-  #       EvaluateTargetHealth: true
-  #       HostedZoneId: !GetAtt loadBalancer.CanonicalHostedZoneID
-
-  #     HostedZoneId: "Z050530319DQ7V8C4I4AJ"
   myDNS:
     Type: AWS::Route53::RecordSetGroup
     Properties:
@@ -918,13 +831,58 @@ Resources:
           HostedZoneId: !GetAtt 'loadBalancer.CanonicalHostedZoneID'
           DNSName: !GetAtt 'loadBalancer.DNSName'
 
-  # MyDomain: 
-  #    Type: "AWS::Route53::RecordSet"
-  #    Properties: 
-  #     AliasTarget: 
-  #       DNSName: !GetAtt loadBalancer.DNSName
-  #       EvaluateTargetHealth: true
-  #       HostedZoneId: !GetAtt loadBalancer.CanonicalHostedZoneID
-  #     HostedZoneName: !Ref DomainName
-  #     Name: !Ref DomainName
-  #     Type: A
+  CodeDeployApplication: 
+    Type: AWS::CodeDeploy::Application 
+    Properties:
+      # ComputePlatform: Server
+      ApplicationName: 'csye6225-webapp'
+
+  AppDeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      DeploymentGroupName: 'csye6225-webapp-deployment'
+      DeploymentConfigName: CodeDeployDefault.AllAtOnce
+      ServiceRoleArn: !GetAtt CodeDeployRole.Arn
+      AutoScalingGroups:
+        - !Ref asgWebApp
+      AutoRollbackConfiguration: 
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+      ApplicationName: !Ref CodeDeployApplication
+      DeploymentStyle:
+        DeploymentType: IN_PLACE
+      Ec2TagFilters:
+        - Key: !Ref EC2TagKey0
+          Value: !Ref EC2TagValue0
+          Type: KEY_AND_VALUE
+
+  CodeDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument: 
+      Policies:
+        - 
+         PolicyName: "CodeDeployPolicy"
+         PolicyDocument:
+           Version: "2012-10-17"
+           Statement:
+              - 
+                Effect: 'Allow'
+                Action: 
+                  - 's3:DeleteObjectTagging'
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:ListBucketMultipartUploads'
+                  - 's3:DeleteObjectVersion'
+                  - 's3:ListBucketVersions'
+                  - 's3:PutObjectVersionTagging'
+                  - 's3:ListBucket'
+                  - 's3:PutObjectTagging'
+                  - 's3:DeleteObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:ListMultipartUploadParts'
+                Resource: 
+                  - arn:aws:s3:::codedeploy-zhenluo-demo
+                  - arn:aws:s3:::codedeploy-zhenluo-demo/*
