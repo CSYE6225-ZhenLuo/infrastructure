@@ -9,8 +9,9 @@ Resources:
   s3Policy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: 'S3buckPolicy'
-      Users: 'ghactions-app'
+      PolicyName: S3buckPolicy
+      Users: 
+        - 'ghactions-app'
       PolicyDocument:  # policy document - can be JSON or YAML
         Version: '2012-10-17'
         Statement:
@@ -37,8 +38,9 @@ Resources:
   cdaPolicy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: 'CodeDeployPolicy '
-      Users: 'ghactions-app'
+      PolicyName: CodeDeployPolicy
+      Users: 
+        - 'ghactions-app'
       PolicyDocument:  # policy document - can be JSON or YAML
         Version: '2012-10-17'
         Statement:
@@ -56,8 +58,9 @@ Resources:
   EC2Policy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: 'CodeDeployPolicy on ec2'
-      Users: 'ghactions-app'
+      PolicyName: CodeDeployPolicyEC2
+      Users: 
+        - 'ghactions-app'
       PolicyDocument:  # policy document - can be JSON or YAML
         Version: '2012-10-17'
         Statement:

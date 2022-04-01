@@ -500,6 +500,8 @@ Resources:
               - 's3:GetObjectVersion'
               - 's3:ListMultipartUploadParts'
             Resource: 
+              - arn:aws:s3:::codedeploy-zhenluo-demo
+              - arn:aws:s3:::codedeploy-zhenluo-demo/*   
               - !GetAtt s3Bucket.Arn
               - !Join
                 - ''
@@ -512,7 +514,6 @@ Resources:
       Path: /
       Roles:
         - !Ref iamRole
-        - !Ref CodeDeployRole
   
   iamRole:
     Type: AWS::IAM::Role
@@ -632,11 +633,12 @@ Resources:
       LaunchTemplateName: !Sub '${AWS::StackName}-launch-template'
       LaunchTemplateData:
         TagSpecifications:
-          ResourceType: instance
-          Tags:
-            - 
-              Key: !Ref EC2TagKey0
-              Value: !Ref EC2TagValue0
+          -
+            ResourceType: instance
+            Tags:
+              - 
+                Key: !Ref EC2TagKey0
+                Value: !Ref EC2TagValue0
         IamInstanceProfile: 
           Name: !Ref iamInstanceProfile
         BlockDeviceMappings:
@@ -862,8 +864,9 @@ Resources:
         Events:
           - DEPLOYMENT_FAILURE
       ApplicationName: !Ref CodeDeployApplication
-      DeploymentStyle:
-        DeploymentType: IN_PLACE
+      # DeploymentStyle:
+      #   DeploymentOption: WITH_TRAFFIC_CONTROL
+      #   DeploymentType: IN_PLACE
       Ec2TagFilters:
         - Key: !Ref EC2TagKey0
           Value: !Ref EC2TagValue0
@@ -872,13 +875,32 @@ Resources:
   CodeDeployRole:
     Type: AWS::IAM::Role
     Properties:
-      Path: "/"
+      Path: /
       AssumeRolePolicyDocument: 
-       Version: "2012-10-17"
-       Statement:
+        Version: '2012-10-17'
+        Statement: 
+          - 
+            Effect: 'Allow'
+            Principal: 
+              Service: 
+                - 'codedeploy.amazonaws.com'
+            Action: 
+              - 'sts:AssumeRole'
+
+  codeDeployPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: 'S3buckPolicy'
+      Roles:
+       - !Ref  CodeDeployRole
+      PolicyDocument:  # policy document - can be JSON or YAML
+        Version: '2012-10-17'
+        Statement:
           - 
             Effect: 'Allow'
             Action: 
+              - 'ec2:*'
+              - 'autoscaling:*'
               - 's3:DeleteObjectTagging'
               - 's3:PutObject'
               - 's3:GetObject'
@@ -892,5 +914,4 @@ Resources:
               - 's3:GetObjectVersion'
               - 's3:ListMultipartUploadParts'
             Resource: 
-              - arn:aws:s3:::codedeploy-zhenluo-demo
-              - arn:aws:s3:::codedeploy-zhenluo-demo/*      
+              - '*'
