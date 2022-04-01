@@ -446,10 +446,7 @@ Resources:
           FromPort: '80'
           ToPort: '80'
           SourceSecurityGroupId: !Ref 'loadBalancerSecurityGroup'
-        - IpProtocol: tcp
-          FromPort: '3306'
-          ToPort: '3306'
-          CidrIp: '0.0.0.0/0'
+
 
   rdsDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
