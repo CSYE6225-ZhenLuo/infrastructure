@@ -1,7 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'CICD cloud formation'
 
-
+Parameters:
+  AWSREGION:
+    Type: String
+    Default: us-east-1
+  AWSACCOUNTID:
+    Type: String
+    Default: 489783191838
+  CODEDEPLOYAPPLICATIONNAME:
+    Type: String
+    Default: csye6225-webapp
 
 Resources: 
 
@@ -49,11 +58,21 @@ Resources:
             Action: 
               - 'codedeploy:RegisterApplicationRevision'
               - 'codedeploy:GetApplicationRevision'
-              - 'codedeploy:GetDeploymentConfig'
-              - 'codedeploy:CreateDeployment'
+            Resource: !Sub 'arn:aws:codedeploy:${AWSREGION}:${AWSACCOUNTID}:application:${CODEDEPLOYAPPLICATIONNAME}'
+          -
+            Effect: 'Allow'
+            Action:
               - 'codedeploy:GetDeployment'
+              - 'codedeploy:CreateDeployment'
+            Resource: '*'
+          -
+            Effect: 'Allow'
+            Action: 
+              - 'codedeploy:GetDeploymentConfig'
             Resource: 
-              - '*'
+              - !Sub 'arn:aws:codedeploy:${AWSREGION}:${AWSACCOUNTID}:deploymentconfig:CodeDeployDefault.OneAtATime'
+              - !Sub 'arn:aws:codedeploy:${AWSREGION}:${AWSACCOUNTID}:deploymentconfig:CodeDeployDefault.HalfAtATime'
+              - !Sub 'arn:aws:codedeploy:${AWSREGION}:${AWSACCOUNTID}:deploymentconfig:CodeDeployDefault.AllAtOnce'
 
   EC2Policy:
     Type: AWS::IAM::Policy
