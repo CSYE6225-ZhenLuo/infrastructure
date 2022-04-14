@@ -472,6 +472,39 @@ Resources:
           ToPort: '3306'
           SourceSecurityGroupId: !Ref 'ApplicationSecurityGroup'
 
+  dynamodbPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DynamodbPolicyForEC2
+      Roles:
+       - !Ref iamRole
+      PolicyDocument:  # policy document - can be JSON or YAML
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: 'Allow'
+            Action:
+              - 'dynamodb:PutItem'
+              - 'dynamodb:GetItem'
+              - 'dynamodb:UpdateItem'
+              - 'dynamodb:DeleteItem'
+            Resource:
+              - '*'
+  snsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: SNSPolicyforEC2
+      Roles:
+       - !Ref iamRole
+      PolicyDocument:  # policy document - can be JSON or YAML
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: 'Allow'
+            Action:
+              - 'sns:*'
+            Resource:
+              - '*'
   cloudWatchPolicy:
     Type: AWS::IAM::Policy
     Properties:
@@ -682,6 +715,7 @@ Resources:
             Fn::Sub: |
               #!/bin/bash
               source /home/ec2-user/venv/bin/activate
+              echo "export TOPIC_ARN=${emailSNSTopic}" >> /etc/profile
               echo "export RDS_HOSTNAME=${csye6225.Endpoint.Address}" >> /etc/profile
               echo "export RDS_DB_NAME=${DBName}" >> /etc/profile
               echo "export RDS_USERNAME=${DBUser}" >> /etc/profile
@@ -690,6 +724,7 @@ Resources:
               echo "export S3_Bucket_Name=${s3Bucket}" >> /etc/profile
               source /etc/profile
               cd /var/www/website/website
+              sed -i '$a os.environ['\''TOPIC_ARN'\''] = '\''${emailSNSTopic}'\''' wsgi.py
               sed -i '$a os.environ['\''RDS_HOSTNAME'\''] = '\''${csye6225.Endpoint.Address}'\''' wsgi.py
               sed -i '$a os.environ['\''RDS_DB_NAME'\''] = '\''${DBName}'\''' wsgi.py
               sed -i '$a os.environ['\''RDS_USERNAME'\''] = '\''${DBUser}'\''' wsgi.py
@@ -944,3 +979,104 @@ Resources:
               - 's3:ListMultipartUploadParts'
             Resource: 
               - '*'
+
+
+
+  lambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - 'lambda.amazonaws.com'
+            Action: "sts:AssumeRole"
+      Tags:
+        - Key: business
+          Value: user-auth
+
+  lambdaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: lambdaPolicy
+      Roles:
+       - !Ref lambdaFunctionRole
+      PolicyDocument:  # policy document - can be JSON or YAML
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Action: "*"
+            Resource: "*"
+
+  lambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Send Email function 
+      FunctionName: EmailSednFunction
+      Handler: lambda_email.lambda_handler
+      MemorySize: 512
+      Role: !GetAtt lambdaFunctionRole.Arn
+      Runtime: python3.9
+      Timeout: 10
+      Code:
+        S3Bucket: codedeploy-zhenluo-demo
+        S3Key: lambda_email.zip
+        # S3ObjectVersion: 
+        # ZipFile: lambda_email.zip
+      Tags:
+        - Key: business
+          Value: user-auth
+
+
+  emailSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: EmailSNSTopic
+      Subscription: 
+        -
+          Endpoint: !GetAtt lambdaFunction.Arn
+          Protocol: lambda
+      Tags:
+        - Key: business
+          Value: user-auth
+
+
+  dynamodbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - 
+          AttributeName: EmailAddress
+          AttributeType: S
+        - 
+          AttributeName: Token
+          AttributeType: S
+      KeySchema:
+        - 
+          AttributeName: EmailAddress
+          KeyType: HASH
+        - 
+          AttributeName: Token
+          KeyType: RANGE
+      TableName: EmailValidTable
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+      Tags:
+        - Key: business
+          Value: user-auth
+
+  lambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref lambdaFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref  emailSNSTopic

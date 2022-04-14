@@ -14,7 +14,7 @@ aws --profile=dev cloudformation delete-stack --stack-name STACK
 aws --profile=dev cloudformation create-stack --stack-name STACK --template-body file://csye6225-infra.yml --parameters ParameterKey=KeyName,ParameterValue="AmazonEC2-ED" ParameterKey=ImageID,ParameterValue= --capabilities CAPABILITY_IAM
 
 
-aws --profile=demo cloudformation create-stack --stack-name STACK --template-body file://csye6225-infra.yml --parameters ParameterKey=KeyName,ParameterValue="MacBook" ParameterKey=ImageID,ParameterValue=ami-01a6475f8ebaf8dd3 ParameterKey=DomainName,ParameterValue=demo.zhenluo.me --capabilities CAPABILITY_IAM
+aws --profile=demo cloudformation create-stack --stack-name STACK --template-body file://csye6225-infra.yml --parameters ParameterKey=KeyName,ParameterValue="MacBook" ParameterKey=ImageID,ParameterValue=ami-0d7c3e541bd2b0f35 ParameterKey=DomainName,ParameterValue=demo.zhenluo.me --capabilities CAPABILITY_IAM
 ami-0a031ca3fa0442004
 
 ami-03c46808e6fe8d75c
