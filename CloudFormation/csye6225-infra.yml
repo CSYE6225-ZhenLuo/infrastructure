@@ -16,10 +16,15 @@ Parameters:
   InstanceType:
     Type: String
     Default: 't2.micro'
+    # Default: 't2.small'
   VPCName: 
     Description: 'The name of the VPC being created.'
     Type: String
     Default: 'MyVPC'
+  CertificateArn: 
+    Description: 'The Arn of ssl.'
+    Type: String
+    Default: 'arn:aws:acm:us-east-1:489783191838:certificate/9db66731-f17e-4388-b2cc-b11d0b6e17c2'
   VpcCidrBlock:
     Description: 'CidrBlock for VPC.'
     Type: String
@@ -80,7 +85,8 @@ Parameters:
   DBInstanceClass:
     Description: The database instance type
     Type: String
-    Default: db.t2.micro
+    # Default: db.t2.micro
+    Default: db.t2.small
     AllowedValues: [db.t1.micro, db.m1.small, db.m1.medium, db.m1.large, db.m1.xlarge,
       db.m2.xlarge, db.m2.2xlarge, db.m2.4xlarge, db.m3.medium, db.m3.large, db.m3.xlarge,
       db.m3.2xlarge, db.m4.large, db.m4.xlarge, db.m4.2xlarge, db.m4.4xlarge, db.m4.10xlarge,
@@ -596,16 +602,35 @@ Resources:
       Description: 'DBParameter Group for RDS'
       Family: mysql8.0
       Parameters:
+        performance_schema: 1
         sql_mode: 'STRICT_TRANS_TABLES'
         validate-password: 'OFF'
         password_reuse_interval: 0
       Tags:
       - Key: Name
         Value: DB ParameterGroup
-
+  # rdsRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     Path:
+  #     AssumeRolePolicyDocument: 
+  #     Policies:
+  #       - 
+  #        PolicyName: "root"
+  #        PolicyDocument:
+  #          Version: "2012-10-17"
+  #          Statement:
+  #             - 
+  #               Effect: "Allow"
+  #               Action: "*"
+  #               Resource: "*"
   csye6225:
     Type: AWS::RDS::DBInstance
     Properties:
+      # AssociatedRoles:
+        # - 
+        #   FeatureName: 
+        #   RoleArn: !GetAtt rdsRole.Arn
       DBName: !Ref 'DBName'
       AllocatedStorage: !Ref 'DBAllocatedStorage'
       DBInstanceClass: !Ref 'DBInstanceClass'
@@ -614,6 +639,8 @@ Resources:
       MasterUsername: !Ref 'DBUser'
       MasterUserPassword: !Ref 'DBPassword'
       DBParameterGroupName: !Ref rdsDBParameterGroup
+      StorageEncrypted: true
+      KmsKeyId: !GetAtt rdsEncryptKey.Arn
       MultiAZ: !Ref 'MultiAZ'
       Tags:
       - Key: Name
@@ -705,6 +732,8 @@ Resources:
             VolumeSize: 20
             VolumeType: "gp2"
             DeleteOnTermination: true
+            Encrypted: true
+            KmsKeyId: !GetAtt ebsEncryptKey.Arn
         ImageId: !Ref ImageID
         InstanceType: !Ref InstanceType
         KeyName: !Ref 'KeyName'
@@ -887,6 +916,15 @@ Resources:
       UnhealthyThresholdCount: 2
       VpcId: !Ref VPC
 
+  # loadBalancerListener:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     DefaultActions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref loadBalancerTargetGroup
+  #     LoadBalancerArn: !Ref loadBalancer
+  #     Port: 80
+  #     Protocol: HTTP
   loadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -894,9 +932,11 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref loadBalancerTargetGroup
       LoadBalancerArn: !Ref loadBalancer
-      Port: 80
-      Protocol: HTTP
-
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-2016-08
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
   myDNS:
     Type: AWS::Route53::RecordSetGroup
     Properties:
@@ -1080,3 +1120,85 @@ Resources:
       FunctionName: !Ref lambdaFunction
       Principal: sns.amazonaws.com
       SourceArn: !Ref  emailSNSTopic
+
+  rdsEncryptKey:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: key-default-1
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Join 
+                - ''
+                - - 'arn:aws:iam::'
+                  - !Ref 'AWS::AccountId'
+                  - ':root'
+            Action: 'kms:*'
+            Resource: '*'
+          # - Sid: Enable IAM User Permissions
+          #   Effect: Allow
+          #   Principal:
+          #     # AWS: !Join 
+          #     #   - ''
+          #     #   - - 'arn:aws:iam::'
+          #     #     - !Ref 'AWS::AccountId'
+          #     #     - ':role/'
+          #     #     - !Ref 'rdsRole'
+          #     AWS:
+          #       - !GetAtt rdsRole.Arm
+          #   Action: 'kms:*'
+          #   Resource: '*'
+          
+  
+  ebsEncryptKey:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: key-default-1
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Join 
+                - ''
+                - - 'arn:aws:iam::'
+                  - !Ref 'AWS::AccountId'
+                  - ':root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              # AWS: !Join 
+              #   - ''
+              #   - - 'arn:aws:iam::'
+              #     - !Ref 'AWS::AccountId'
+              #     - ':role/'
+              #     - !Ref 'iamRole'
+              AWS:
+                - !GetAtt iamRole.Arn
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS:
+                - !GetAtt CodeDeployRole.Arn
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS:
+              AWS: !Join 
+                - ''
+                - - 'arn:aws:iam::'
+                  - !Ref 'AWS::AccountId'
+                  - ':role/'
+                  - 'aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling'
+            Action: 'kms:*'
+            Resource: '*'
